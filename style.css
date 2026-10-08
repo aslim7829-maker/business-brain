@@ -80,3 +80,6 @@ dialog label{display:block;margin:8px 0 2px;font-size:12px;color:var(--mut)}
 .bottom{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--line);z-index:10}
 .bottom a{flex:1;text-align:center;padding:8px 2px;font-size:11px;color:var(--mut);cursor:pointer;text-decoration:none}.bottom a[aria-current=page]{color:var(--acc);font-weight:700}#toasts{bottom:64px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Live indicator */
+.live{color:var(--ok);white-space:nowrap}.live[aria-pressed=false]{color:var(--mut)}.live b{animation:pl 1.4s infinite}@keyframes pl{50%{opacity:.25}}
