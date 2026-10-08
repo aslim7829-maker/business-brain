@@ -1,6 +1,6 @@
 /* Sri Lanka Business Brain — MVP demo. Vanilla JS + localStorage. All data is fictional. */
 'use strict';
-const KEY = 'slbb.v1';
+const KEY = 'slbb.v2';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const LKR = n => 'LKR ' + Math.round(n || 0).toLocaleString('en-US');
@@ -17,7 +17,29 @@ const T = {
 const t = k => (T[db.lang] || T.en)[k] || T.en[k] || k;
 
 /* ---------- Seed data ---------- */
-function seed() {
+/* ---------- Bulk fictional data: ~170 customers, ~1,100 orders ---------- */
+const MSGS = ['Hi, is this still available?', 'What is the delivery charge to Kandy?', 'Can I pay by bank transfer?', 'ඇණවුම කවදාද ලැබෙන්නේ?', 'Do you give a discount for bulk orders?', 'Please send me the invoice.', 'Can I change my delivery address?', 'விலை என்ன? Price please.', 'My order has not arrived yet.', 'Do you have this in stock today?'];
+function bulk(d) {
+  const R = n => Math.floor(Math.random() * n), pick = a => a[R(a.length)];
+  const F = ['Amal', 'Nadeesha', 'Chamara', 'Sachini', 'Isuru', 'Madhavi', 'Kavindu', 'Thilini', 'Harsha', 'Dinesh', 'Lakshmi', 'Vimal', 'Shanika', 'Aisha', 'Suresh', 'Kavitha', 'Roshan', 'Ishara', 'Janaka', 'Hiruni', 'Naveen', 'Farhan'];
+  const L = ['Perera', 'Fernando', 'Silva', 'Jayawardena', 'Bandara', 'Gunasekara', 'Wijesinghe', 'Kumar', 'Selvam', 'Rizwan', 'Hameed', 'Dissanayake', 'Senanayake', 'Ratnayake', 'Mendis', 'Pathirana'];
+  const PB = [['Cotton Saree', 'Apparel', 8500], ['Linen Shirt', 'Apparel', 5200], ['Kids School Bag', 'Accessories', 3900], ['Handloom Sarong', 'Apparel', 2800], ['Steel Water Bottle', 'Home', 1900], ['Rice Cooker 1.8L', 'Home', 12500], ['Bluetooth Speaker', 'Electronics', 7800], ['Phone Charger 20W', 'Electronics', 2400], ['Notebook Pack (5)', 'Stationery', 1250], ['Gel Pen Box', 'Stationery', 950], ['Wooden Mask', 'Gifts', 6500], ['Cinnamon Spice Set', 'Gifts', 2700], ['Office File Cabinet', 'Furniture', 32000], ['Visitor Chair', 'Furniture', 9800], ['Whiteboard 4ft', 'Stationery', 8900], ['Printer Ink Set', 'Electronics', 6100]];
+  PB.forEach((p, i) => d.products.push({ id: 'gp' + i, name: p[0], sku: p[0].split(' ').map(w => w[0]).join('').toUpperCase() + '-' + (100 + i), price: p[2], stock: R(120) + 4, cat: p[1] }));
+  for (let i = 0; i < 160; i++) { const f = pick(F), l = pick(L); d.customers.push({ id: 'g' + i, name: f + ' ' + l, phone: '07' + R(10) + ' ' + (100 + R(900)) + ' ' + (1000 + R(9000)), email: (f + '.' + l + i).toLowerCase() + '@example.lk', lang: pick(['English', 'English', 'සිංහල', 'සිංහල', 'தமிழ்']), status: 'Active', last: day(90) }); }
+  const gc = d.customers.slice(8);
+  for (let i = 0; i < 1100; i++) {
+    const age = Math.floor(Math.pow(Math.random(), 1.6) * 75), old = age > 7, cx = R(14) === 0;
+    d.orders.push({ id: 'ORD-' + (3000 + i), cid: pick(gc).id, items: [...Array(1 + R(3))].map(() => { const p = pick(d.products); return { pid: p.id, name: p.name, qty: 1 + R(5), price: p.price }; }), pay: cx ? 'Unpaid' : (R(10) < (old ? 9 : 6) ? 'Paid' : 'Unpaid'), status: cx ? 'Cancelled' : old ? 'Delivered' : pick(['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered']), date: day(age) });
+  }
+  d.orders.sort((a, b) => a.date.localeCompare(b.date));
+  gc.forEach(c => { const os = d.orders.filter(o => o.cid === c.id); if (!os.length) { c.status = 'Lead'; return; } c.last = os[os.length - 1].date; const a = Math.floor((Date.now() - new Date(c.last)) / 864e5); c.status = a > 60 ? 'Inactive' : 'Active'; });
+  d.orders.filter(o => o.status === 'Delivered').slice(-150).forEach((o, i) => d.invoices.push({ id: 'INV-' + (6000 + i), cid: o.cid, items: o.items.map(({ name, qty, price }) => ({ name, qty, price })), delivery: pick([0, 500, 1500, 2500]), discount: pick([0, 0, 5]), tax: 0, pay: o.pay, date: o.date, sent: true }));
+  d.invoices.sort((a, b) => a.date.localeCompare(b.date));
+  for (let i = 0; i < 40; i++) d.convs.push({ id: 'gv' + i, cid: pick(gc).id, ch: pick(['WhatsApp', 'WhatsApp', 'Facebook', 'Instagram']), status: R(3) ? 'Resolved' : 'Open', assignee: pick(['Unassigned', 'Sahan', 'Dilini']), msgs: [{ f: 'c', t: pick(MSGS), at: pick(['08:30', '09:45', '12:10', '14:25', 'Yesterday']) }] });
+  return d;
+}
+function seed() { return bulk(seed0()); }
+function seed0() {
   const C = (id, name, phone, email, lang, status, last) => ({ id, name, phone, email, lang, status, last });
   const P = (id, name, sku, price, stock, cat) => ({ id, name, sku, price, stock, cat });
   return {
@@ -43,7 +65,7 @@ function seed() {
   };
 }
 let db = load();
-function load() { try { return JSON.parse(localStorage.getItem(KEY)) || seed(); } catch (e) { return seed(); } }
+function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s) return s; } catch (e) {} const d = seed(); try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} return d; }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('Storage full or blocked — changes will not persist', 'bad'); } }
 const cust = id => db.customers.find(c => c.id === id) || { name: 'Unknown' };
 const total = (o) => o.items.reduce((s, i) => s + i.qty * i.price, 0);
@@ -85,9 +107,12 @@ function form(title, fields, vals, onOk) {
   };
   $('#f_' + fields[0].k).focus();
 }
+const PAGE = 25; let PG = {};
 function table(cols, rows, empty) {
   if (!rows.length) return `<div class="empty card">${esc(empty || 'Nothing here yet.')}</div>`;
-  return `<div class="tw"><table><thead><tr>${cols.map(c => `<th scope="col">${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const n = rows.length, pages = Math.ceil(n / PAGE), p = Math.min(PG[cur] || 0, pages - 1), vis = n > PAGE ? rows.slice(p * PAGE, p * PAGE + PAGE) : rows;
+  const pager = n > PAGE ? `<div class="bar"><span>${p * PAGE + 1}–${Math.min(n, p * PAGE + PAGE)} of ${n}</span><span class="sp"></span><button class="sm" data-pg="${p - 1}" ${p ? '' : 'disabled'}>← Prev</button><button class="sm" data-pg="${p + 1}" ${p < pages - 1 ? '' : 'disabled'}>Next →</button></div>` : '';
+  return `<div class="tw"><table><thead><tr>${cols.map(c => `<th scope="col">${esc(c)}</th>`).join('')}</tr></thead><tbody>${vis.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${pager}`;
 }
 /* Delete with undo */
 function removeWithUndo(list, id, label) {
@@ -136,11 +161,12 @@ const VIEWS = {
     return `<h1>${esc(t('hi'))}, Aslim 👋</h1><p style="color:var(--mut)">${esc(db.biz)}</p>
     <div class="grid" style="margin-top:12px">${kpi(t('sales'), LKR(sales))}${kpi('Orders today', to.length)}${kpi('Pending customer replies', pend)}${kpi('Pending payments', LKR(unpaid))}${kpi('New customers', db.customers.filter(c => daysSince(c.last) <= 1 && c.status === 'Lead').length)}</div>
     <div class="two"><section class="card"><h2>✦ ${esc(t('insights'))}</h2>${insights().map(i => `<div class="insight">${esc(i)}</div>`).join('')}</section>
-    <section class="card"><h2>Recent customer conversations</h2>${db.convs.slice(0, 4).map(v => `<div class="insight"><a href="#inbox" data-v="inbox" style="color:var(--tx)"><b>${esc(cust(v.cid).name)}</b> · ${esc(v.ch)}</a><br><small style="color:var(--mut)">${esc(v.msgs.at(-1).t)}</small></div>`).join('')}</section></div>
+    <section class="card"><h2>Recent customer conversations</h2>${db.convs.slice(0, 4).map(v => `<div class="insight"><a href="#inbox" data-v="inbox" style="color:var(--tx)"><b>${esc(cust(v.cid).name)}</b> · ${esc(v.ch)}</a><br><small style="color:var(--mut)">${esc(v.msgs.at(-1).t)}</small></div>`).join('')}</section>
+    <section class="card"><h2>⚡ Live activity</h2>${(db.feed || []).slice(0, 6).map(f => `<div class="insight"><small style="color:var(--mut)">${esc(f.t)}</small> ${esc(f.e)}</div>`).join('') || '<div class="empty">Waiting for activity…</div>'}</section></div>
     <h2 style="margin-top:16px">Recent orders</h2>${table(['Order', 'Customer', 'Total', 'Status'], db.orders.slice(-5).reverse().map(o => [esc(o.id), esc(cust(o.cid).name), LKR(ordTotal(o)), stat(o.status)]))}`;
   },
   inbox() {
-    const list = db.convs.filter(v => !q || (cust(v.cid).name + v.msgs.map(m => m.t).join()).toLowerCase().includes(q));
+    const list = db.convs.filter(v => !q || (cust(v.cid).name + v.msgs.map(m => m.t).join()).toLowerCase().includes(q)).slice(0, 60);
     if (!list.length) return head('AI Inbox') + '<div class="empty card">No conversations match.</div>';
     const v = db.convs.find(x => x.id === activeConv) || list[0];
     return head(t('inbox')) + `<div class="inbox" id="ib"><div class="card convs" style="padding:0" role="list">${list.map(c => `<button class="conv" data-c="${c.id}" ${c.id === v.id ? 'aria-current="true"' : ''}><b>${esc(cust(c.cid).name)}</b> ${stat(c.status)}<small>${esc(c.ch)} · ${esc(c.msgs.at(-1).t)}</small></button>`).join('')}</div>
@@ -166,7 +192,7 @@ const VIEWS = {
     return head(t('quotations'), 'New quotation', 'add') + table(['Quote', 'Customer', 'Items', 'Grand total', 'Status', 'Date', ''], db.quotes.filter(x => !q || (x.id + cust(x.cid).name).toLowerCase().includes(q)).map(x => [esc(x.id), esc(cust(x.cid).name), esc(x.items.map(i => i.qty + '× ' + i.name).join(', ')), LKR(grand(x)), stat(x.status), esc(x.date), `<button class="sm" data-qv="${x.id}">View</button> <button class="sm" data-qs="${x.id}">Send</button> <button class="sm" data-qc="${x.id}">Convert to invoice</button>`]), 'No quotations yet. Create one for a customer.');
   },
   invoices() {
-    return head(t('invoices'), '', '') + table(['Invoice', 'Customer', 'Items', 'Subtotal', 'Discount', 'Tax', 'Delivery', 'Total', 'Payment', 'Date', ''], db.invoices.filter(x => !q || (x.id + cust(x.cid).name).toLowerCase().includes(q)).map(x => { const s = total(x), d = s * (x.discount || 0) / 100; return [esc(x.id), esc(cust(x.cid).name), esc(x.items.map(i => i.qty + '× ' + i.name).join(', ')), LKR(s), '−' + LKR(d), LKR((s - d) * (x.tax || 0) / 100), LKR(x.delivery), `<b>${LKR(grand(x))}</b>`, stat(x.pay), esc(x.date), `${x.pay !== 'Paid' ? `<button class="sm" data-pd="${x.id}">Mark paid</button> ` : ''}<button class="sm" data-dl="${x.id}">Download</button> <button class="sm" data-sn="${x.id}">${x.sent ? 'Resend' : 'Send'}</button>`]; }), 'No invoices yet. Create one from an order or quotation.');
+    return head(t('invoices'), '', '') + table(['Invoice', 'Customer', 'Items', 'Subtotal', 'Discount', 'Tax', 'Delivery', 'Total', 'Payment', 'Date', ''], db.invoices.filter(x => !q || (x.id + cust(x.cid).name).toLowerCase().includes(q)).slice().reverse().map(x => { const s = total(x), d = s * (x.discount || 0) / 100; return [esc(x.id), esc(cust(x.cid).name), esc(x.items.map(i => i.qty + '× ' + i.name).join(', ')), LKR(s), '−' + LKR(d), LKR((s - d) * (x.tax || 0) / 100), LKR(x.delivery), `<b>${LKR(grand(x))}</b>`, stat(x.pay), esc(x.date), `${x.pay !== 'Paid' ? `<button class="sm" data-pd="${x.id}">Mark paid</button> ` : ''}<button class="sm" data-dl="${x.id}">Download</button> <button class="sm" data-sn="${x.id}">${x.sent ? 'Resend' : 'Send'}</button>`]; }), 'No invoices yet. Create one from an order or quotation.');
   },
   analytics() {
     const days = [...Array(7)].map((_, i) => day(6 - i)), vals = days.map(d => db.orders.filter(o => o.date === d).reduce((s, o) => s + ordTotal(o), 0)), cnt = days.map(d => db.orders.filter(o => o.date === d).length), mx = Math.max(...vals, 1);
@@ -209,7 +235,7 @@ const BIND = {
     $('#snd').onclick = () => { const txt = $('#rep').value.trim(); if (!txt) return toast('Write a reply first', 'bad'); v.msgs.push({ f: 'me', t: txt, at: new Date().toTimeString().slice(0, 5) }); v.draft = ''; v.status = 'Resolved'; save(); go('inbox'); toast('Reply sent via ' + v.ch); };
   },
   customers() {
-    $('#add').onclick = () => custForm(); $('#fs').onchange = e => { window._cf = e.target.value; go('customers'); };
+    $('#add').onclick = () => custForm(); $('#fs').onchange = e => { window._cf = e.target.value; PG = {}; go('customers'); };
     rowActs('customers', custForm, 'Customer');
   },
   products() { $('#add').onclick = () => prodForm(); rowActs('products', prodForm, 'Product'); },
@@ -292,17 +318,43 @@ function assist(raw) {
     db.quotes.push({ id: 'QUO-' + (2001 + db.quotes.length), cid: c.id, items: [{ pid: p.id, name: p.name, qty: n, price: p.price }], delivery: 3500, discount: n >= 10 ? 5 : 0, status: 'Draft', date: todayStr });
     const q = db.quotes.at(-1); return `Done. Draft <b>${q.id}</b> for ${esc(c.name)}: ${n} × ${esc(p.name)}, ${q.discount}% discount, delivery LKR 3,500. Grand total <b>${LKR(grand(q))}</b>. Review it in Quotations.`;
   }
-  if (/unpaid|payment|owe/.test(s)) { const u = db.invoices.filter(i => i.pay === 'Unpaid'); return u.length ? `${u.length} unpaid invoices totalling <b>${LKR(u.reduce((a, i) => a + grand(i), 0))}</b>:<br>${u.map(i => `• ${i.id} — ${esc(cust(i.cid).name)} — ${LKR(grand(i))}`).join('<br>')}` : 'All invoices are paid. 🎉'; }
-  if (/30 days|haven't ordered|not ordered|inactive/.test(s)) { const l = db.customers.filter(c => !db.orders.some(o => o.cid === c.id && daysSince(o.date) < 30)); return l.length ? `${l.length} customers have not ordered in 30 days:<br>${l.map(c => '• ' + esc(c.name) + ' (' + esc(c.lang) + ')').join('<br>')}<br>Suggestion: send a friendly WhatsApp offer.` : 'Every customer has ordered recently.'; }
-  if (/follow/.test(s)) { const o = db.convs.filter(v => v.status === 'Open'); return `Follow up with:<br>${o.map(v => `• ${esc(cust(v.cid).name)} on ${v.ch} — waiting for a reply`).join('<br>') || 'No open conversations.'}<br>${db.orders.filter(x => x.pay === 'Unpaid').map(x => `• ${esc(cust(x.cid).name)} — ${x.id} unpaid`).join('<br>')}`; }
+  if (/unpaid|payment|owe/.test(s)) { const u = db.invoices.filter(i => i.pay === 'Unpaid'); return u.length ? `${u.length} unpaid invoices totalling <b>${LKR(u.reduce((a, i) => a + grand(i), 0))}</b>:<br>${u.slice(0, 8).map(i => `• ${i.id} — ${esc(cust(i.cid).name)} — ${LKR(grand(i))}`).join('<br>')}` : 'All invoices are paid. 🎉'; }
+  if (/30 days|haven't ordered|not ordered|inactive/.test(s)) { const l = db.customers.filter(c => !db.orders.some(o => o.cid === c.id && daysSince(o.date) < 30)); return l.length ? `${l.length} customers have not ordered in 30 days:<br>${l.slice(0, 10).map(c => '• ' + esc(c.name) + ' (' + esc(c.lang) + ')').join('<br>')}<br>Suggestion: send a friendly WhatsApp offer.` : 'Every customer has ordered recently.'; }
+  if (/follow/.test(s)) { const o = db.convs.filter(v => v.status === 'Open').slice(0, 8); return `Follow up with:<br>${o.map(v => `• ${esc(cust(v.cid).name)} on ${v.ch} — waiting for a reply`).join('<br>') || 'No open conversations.'}<br>${db.orders.filter(x => x.pay === 'Unpaid').slice(-6).map(x => `• ${esc(cust(x.cid).name)} — ${x.id} unpaid`).join('<br>')}`; }
   if (/best|top|sell/.test(s)) return 'Best-selling products:<br>' + bestSellers().slice(0, 5).map(([n, c], i) => `${i + 1}. ${esc(n)} — ${c} units`).join('<br>');
   if (/today|happen|summary/.test(s)) { const to = db.orders.filter(o => o.date === todayStr); return `Today: <b>${to.length}</b> orders worth <b>${LKR(to.reduce((a, o) => a + ordTotal(o), 0))}</b>, ${db.convs.filter(v => v.status === 'Open').length} open conversations.<br>` + insights().map(i => '• ' + esc(i)).join('<br>'); }
   return 'I can help with sales, follow-ups, unpaid invoices, best sellers, inactive customers and quotations. Try one of the suggested prompts.';
 }
 
+/* ---------- Live simulation: new messages/orders arrive every 8s ---------- */
+const CH = ['WhatsApp', 'Facebook', 'Instagram'], nowT = () => new Date().toTimeString().slice(0, 5);
+function badge() { $('#notifN').textContent = db.convs.filter(v => v.status === 'Open').length; }
+function liveUI() { $('#liveBtn').setAttribute('aria-pressed', !!db.live); $('#liveT').textContent = db.live ? 'Live' : 'Paused'; }
+function refresh() { /* soft re-render; skipped while the user is typing or a dialog is open */
+  const a = document.activeElement;
+  if (dlg.open || (a && a.matches('input,textarea,select') && $('#view').contains(a)) || !VIEWS[cur] || cur === 'assistant' || cur === 'settings') return;
+  $('#view').innerHTML = VIEWS[cur](); (BIND[cur] || (() => 0))();
+}
+function tick() {
+  if (!db.live || document.hidden) return;
+  const pick = a => a[Math.floor(Math.random() * a.length)], c = pick(db.customers); let ev;
+  if (Math.random() < .6) {
+    let v = db.convs.find(x => x.cid === c.id && x.status === 'Open');
+    if (v) db.convs.splice(db.convs.indexOf(v), 1); else v = { id: uid('v'), cid: c.id, ch: pick(CH), status: 'Open', assignee: 'Unassigned', msgs: [] };
+    v.msgs.push({ f: 'c', t: pick(MSGS), at: nowT() }); db.convs.unshift(v); ev = `${c.name} messaged on ${v.ch}`;
+  } else {
+    const p = pick(db.products), n = 1 + Math.floor(Math.random() * 4), o = { id: 'ORD-' + db.nextOrder++, cid: c.id, items: [{ pid: p.id, name: p.name, qty: n, price: p.price }], pay: Math.random() < .5 ? 'Paid' : 'Unpaid', status: 'Pending', date: todayStr };
+    db.orders.push(o); p.stock = Math.max(0, p.stock - n); c.last = todayStr; ev = `New order ${o.id} — ${c.name} · ${LKR(ordTotal(o))}`;
+  }
+  db.feed.unshift({ t: nowT(), e: ev }); db.feed.length = Math.min(db.feed.length, 20); save(); badge(); toast(ev); refresh();
+}
+$('#liveBtn').onclick = () => { db.live = !db.live; save(); liveUI(); toast(db.live ? 'Live updates on' : 'Live updates paused'); };
+document.addEventListener('click', e => { const b = e.target.closest('[data-pg]'); if (b && !b.disabled) { PG[cur] = +b.dataset.pg; go(cur); window.scrollTo(0, 0); } });
+setInterval(tick, 8000);
+
 /* ---------- Global wiring ---------- */
 function init() {
-  document.documentElement.dataset.theme = db.theme; $('#bizName').textContent = db.biz; $('#lang').value = db.lang;
+  document.documentElement.dataset.theme = db.theme; $('#bizName').textContent = db.biz; $('#lang').value = db.lang; if (db.live === undefined) db.live = true; db.feed = db.feed || []; liveUI();
   $('#notifN').textContent = db.convs.filter(v => v.status === 'Open').length;
   go(location.hash.slice(1) in VIEWS ? location.hash.slice(1) : 'dashboard');
 }
@@ -311,7 +363,7 @@ $('#lang').onchange = e => { db.lang = e.target.value; save(); go(cur); };
 $('#menuBtn').onclick = () => { const s = $('#side'); innerWidth > 900 ? s.classList.toggle('hide') : s.classList.toggle('show'); };
 $('#notifBtn').onclick = () => toast(`${db.convs.filter(v => v.status === 'Open').length} conversations need a reply`);
 $('#profBtn').onclick = () => toast('Signed in as Aslim (demo owner)');
-$('#search').oninput = e => { q = e.target.value.toLowerCase(); clearTimeout(window._st); window._st = setTimeout(() => { if (['dashboard', 'assistant', 'settings', 'analytics'].includes(cur)) cur = 'customers'; go(cur); setTimeout(() => $('#search').focus(), 200); }, 250); };
+$('#search').oninput = e => { q = e.target.value.toLowerCase(); PG = {}; clearTimeout(window._st); window._st = setTimeout(() => { if (['dashboard', 'assistant', 'settings', 'analytics'].includes(cur)) cur = 'customers'; go(cur); setTimeout(() => $('#search').focus(), 200); }, 250); };
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') return closeDlg();
   if (e.target.matches('input,textarea,select') || e.ctrlKey || e.metaKey || e.altKey) return;
